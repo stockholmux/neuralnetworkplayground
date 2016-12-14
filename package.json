@@ -1,0 +1,23 @@
+{
+  "name": "neuralnetworkplayground",
+  "version": "1.0.0",
+  "description": "Redis-Neural Network Module playground",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "neural",
+    "redis"
+  ],
+  "author": "Kyle Davis",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "express": "^4.14.0",
+    "lodash": "^4.17.2",
+    "redis": "stockholmux/node_redis#4cb0afb8e078e5c0e26dc2de95ecba4b9891473c",
+    "yargs": "^6.4.0",
+    "redis-nn" : "^1.0.1"
+  }
+}

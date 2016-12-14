@@ -1,0 +1,224 @@
+<!doctype html>
+<html ng-app="neuralPlayground"> <!--ng-app tells Angular to hand over control to the `neuralPlayground` module-->
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.8/angular.min.js"></script> <!-- include the angular library -->
+
+    
+    <link rel="stylesheet" href="https://unpkg.com/ng-table@2.0.2/bundles/ng-table.min.css">
+    <script src="https://unpkg.com/ng-table@2.0.2/bundles/ng-table.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/angularjs-toaster/1.1.0/toaster.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angularjs-toaster/1.1.0/toaster.min.js"></script>
+
+    <script src="neuralplayground.js"></script> <!-- Our script -->
+
+    <link 
+      rel="stylesheet" 
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+      integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" 
+      crossorigin="anonymous"
+    > <!-- include Bootstrap CSS -->
+    <style>
+      .no-counts .ng-table-counts {
+        display: none;
+      }
+    </style>
+  </head>
+  <body ng-controller="PlaygroundCtrl">
+    <toaster-container toaster-options="{'time-out': 2000}"></toaster-container>
+    <div class="container">
+        <div class="form-group">
+          <label for="neuralKey">Redis Neural Network Key:</label>
+          <input type="text" class="form-control" placeholder="one word, no spaces" ng-model="neuralKey" id="neuralKey" ng-blur="getInfo()"/>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Create</div>
+          <div class="panel-body">
+            <pre ng-class="{ 'text-success' : createParams.neuralKey && createParams.numberOfInputs && createParams.outputs }">NR.CREATE {{neuralKey}} {{createParams.networkType}} {{createParams.numberOfInputs}} {{createParams.hiddenLayers}} <span class="ng-hide" ng-show="createParams.outputs">-></span> {{createParams.outputs}} </span><span class="ng-hide" ng-show="createParams.dataset">DATASET {{createParams.dataset}} </span><span class="ng-hide" ng-show="createParams.testset">TEST {{createParams.testset}} </span><span class="ng-hide" ng-show="createParams.normalize === true">NORMALIZE</span>
+            </pre>
+            <div class="row">
+              <form name="myForm" class="aform">
+                <div class="form-group col-md-2">
+                  <label for="networkType">Network Type</label>
+                  <select name="networkType" class="form-control" id="networkType" ng-model="createParams.networkType">
+                    <option value="REGRESSOR">Regressor</option>
+                    <option value="CLASSIFIER">Classifier</option>
+                  </select>
+                </div>
+
+                <div class="form-group col-md-2">
+                  <label for="numberOfInputs">Inputs</label>
+                  <input name="numberOfInputs" type="number" class="form-control" ng-model="createParams.numberOfInputs" id="numberOfInputs" placeholder="a number" />
+                </div>
+
+                <div class="form-group col-md-2">
+                  <label for="hiddenLayers">Hidden Layers</label>
+                  <input number="hiddenLayers" type="number" class="form-control" ng-model="createParams.hiddenLayers" id="hiddenLayers" placeholder="a number" />
+                </div>
+
+                <div class="form-group col-md-2">
+                  <label for="outputs">Outputs</label>
+                  <input name="outputs" type="number" class="form-control" ng-model="createParams.outputs" id="outputs" ng-min="createParams.networkType === 'CLASSIFIER' ? 2 : null" placeholder="a number" />
+                  <div class="ng-hide text-warning" ng-show="myForm.outputs.$error.min">Classifiers should have more than 1 output</div>
+                </div>
+
+                <div class="form-group col-md-2">
+                  <label for="dataset">Dataset Size</label>
+                  <input name="dataset" type="number" class="form-control" ng-model="createParams.dataset" id="dataset" placeholder="a number" />
+                </div>
+
+                <div class="form-group col-md-2">
+                  <label for="testset">Testset Size</label>
+                  <input name="testset" type="number" class="form-control" ng-model="createParams.testset" id="testset" placeholder="a number" />
+                </div>
+              </form>
+            </div>
+            <div class="checkbox">
+              <label>
+                <input type="checkbox" ng-model="createParams.normalize"> Normalize
+              </label>
+            </div>
+          </div>
+          <div class="panel-footer">
+            <button class="btn btn-primary" ng-disabled="!(neuralKey && createParams.numberOfInputs && createParams.outputs)" ng-click="create()">Create</button>
+          </div>
+        </div>
+        <div class="panel panel-default" ng-show="networkInfo">
+          <div class="panel-heading">Input (Observe)</div>
+          <div class="panel-body">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <td>Command</td>
+                  <td ng-repeat="anInput in inputsArr">Input {{anInput+1}}</td>
+                  <td lass="text-nowrap">-></td>
+
+                  <td ng-repeat="anOutput in outputsArr">Output {{anOutput+1}}</td>
+                  <td>Dataset</td>
+                </tr>
+              </head>
+              <tbody>
+                <tr ng-repeat="aObserveRow in observeRows">
+                  <td>NR.OBSERVE {{neuralKey}}</td>
+                  <td ng-repeat="anInput in inputsArr">
+                    <input 
+                      class="form-control input-sm" 
+                      type="number" 
+                      ng-model="aObserveRow.input[anInput]" 
+                      ng-min="autoNormalize === 0 ? -1 : null"
+                      ng-max="autoNormalize === 0 ? 1 : null"
+                    />
+                  </td>
+                  <td class="text-nowrap">-></td>
+                  <td ng-repeat="anOutput in outputsArr">
+                    <input class="form-control input-sm" type="number" ng-model="aObserveRow.output[anOutput]" />
+                    <span>
+                  </td>
+                  <td>
+                    <select class="form-control input-sm" ng-model="aObserveRow.dataset">
+                      <option value="">none / auto</option>
+                      <option value="TRAIN">TRAIN</option>
+                      <option value="TEST">TEST</option>
+                    <select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel-footer">
+            <button class="btn btn-primary" ng-click="observe(neuralKey,observeRows)">Observe Rows</button>
+            <button class="btn btn-success" ng-click="addObserveRow()">Add Row</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="panel panel-default" ng-show="networkInfo">
+              <div class="panel-heading">Train</div>
+              <div class="panel-body">
+                <pre>NR.TRAIN {{neuralKey}}<span class="ng-hide" ng-show="trainParams.maxCycles"> MAXCYCLES {{trainParams.maxCycles}}</span><span class="ng-hide" ng-show="trainParams.maxTime"> MAXTIME {{trainParams.maxTime}}</span><span class="ng-hide" ng-show="trainParams.autostop"> AUTOSTOP</span><span class="ng-hide" ng-show="trainParams.backtrack"> BACKTRACK</span></pre>
+                <div class="form-group">
+                  <label for="maxCycles">Max Cycles [Count]:</label>
+                  <input type="number" class="form-control" ng-model="trainParams.maxCycles" id="maxCycles" placeholder="a number">
+                </div>
+
+                <div class="form-group">
+                  <label for="maxTime">Max Time [Milliseconds]:</label>
+                  <input type="number" class="form-control" ng-model="trainParams.maxTime" id="maxTime" placeholder="a number">
+                </div>
+
+                <div class="checkbox">
+                  <label>
+                    <input type="checkbox" ng-model="trainParams.autostop"> Autostop
+                  </label>
+                </div>
+
+                <div class="checkbox">
+                  <label>
+                    <input type="checkbox" ng-model="trainParams.backtrack"> Backtrack
+                  </label>
+                </div>
+              </div>
+              <div class="panel-footer">
+                <button class="btn btn-primary" ng-click="train()">Train</button>
+                <button class="btn btn-danger" ng-click="reset()">Reset</button>
+              </div>
+            </div>
+            <div class="panel panel-default" ng-show="networkInfo">
+              <div class="panel-heading">Run/Classify</div>
+              <div class="panel-body">
+                <pre>NR.<span class="ng-hide" ng-show="classify">CLASS</span><span class="ng-hide" ng-hide="classify">RUN</span> {{neuralKey}}<span ng-repeat="aRunParam in runParams"> {{aRunParam}}</span></pre>
+                <div class="checkbox ng-hide" ng-show="netType==='classifier'">
+                  <label>
+                    <input type="checkbox" ng-model="classify"> Classify
+                  </label>
+                </div>
+                <div class="form-group" ng-repeat="anInput in inputsArr">
+                  <label>Input {{anInput}}:</label>
+                  <input type="text" class="form-control" ng-model="runParams[anInput]" >
+                </div>
+                <pre><div ng-repeat="aResponseRow in responses">NR.{{(aResponseRow.classify === true ? 'CLASS' : 'RUN')}} {{neuralKey}}<span ng-repeat="anInput in aResponseRow.inputs">{{anInput}} </span><div ng-repeat="aResponse in aResponseRow.response">{{$index+1}}) {{aResponse}}</div></div></pre>
+              </div>
+              <div class="panel-footer">
+                <button class="btn btn-primary" ng-click="run({ classify : false })" ng-hide="classify">Run</button>
+                <button class="btn btn-primary ng-hide" ng-click="run({ classify : true })" ng-show="classify">Classify</button>
+              </div>
+
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="panel panel-default">
+              <div class="panel-heading">Info</div>
+              <div class="panel-body">
+                <pre>NR.INFO {{neuralKey}}</pre>
+
+                <div class="ng-hide well" ng-hide="networkInfo">
+                  Neural network "{{neuralKey}}" does not yet exist.
+                </div>
+                <div class="no-counts">
+                  <table class="table ng-hide" ng-table="infoTable" ng-show="networkInfo">
+                    <tr ng-repeat="infoRow in $data">
+                      <td title="'Property'" sortable="'property'">
+                        {{infoRow.property}}</td>
+                      <td title="'Value'" sortable="'value'">
+                        <span class="ng-hide" ng-show="infoRow.property !== 'layout'">{{infoRow.value}}</span>
+                        <div class="ng-hide" ng-hide="infoRow.property !== 'layout'">
+                          <div>Inputs: {{infoRow.value[0]}}</div>
+                          <div class="ng-hide" ng-show="infoRow.value.length === 3">Hidden Layers: {{infoRow.value[1]}}</div>
+                          <div>Outputs: {{infoRow.value[infoRow.value.length-1]}}</div>
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </div>
+              <div class="panel-footer">
+                <button class="btn btn-primary" ng-click="getInfo()">Get Info</button>
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+  </body>
+</html>
